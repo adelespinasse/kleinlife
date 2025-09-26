@@ -1,7 +1,13 @@
 {
-  "name": "webgpu-vite-cube",
-  "private": true,
-  "version": "0.0.0",
+  "name": "kleinlife",
+  "author": {
+    "name": "Alan deLespinasse",
+    "url": "https://aldel.com"
+  },
+  "repository": {
+    "url": "https://github.com/adelespinasse/kleinlife"
+  },
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",

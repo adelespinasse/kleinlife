@@ -1,3 +1,6 @@
+/** This file contains camera animation code, mainly for when transitioning
+ * from and to Ant Mode. Most of the other camera logic is in main.ts. */
+
 import {
   mat4,
   vec3,

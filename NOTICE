@@ -1,0 +1,18 @@
+NOTICE
+=======
+
+This project is licensed under the Apache License, Version 2.0.
+See the LICENSE file for details.
+
+This project includes or is derived from portions of other open source
+software:
+
+- Modified portions of "Your First WebGPU App Codelab"
+  (https://github.com/GoogleChromeLabs/your-first-webgpu-app-codelab),
+  originally licensed under the Apache License, Version 2.0.
+  See http://www.apache.org/licenses/LICENSE-2.0 for details.
+
+- Modified portions of "WebGPU Samples"
+  (https://github.com/webgpu/webgpu-samples),
+  originally licensed under the BSD 3-Clause "New" or "Revised" License (2019).
+  The full text of this license is included in the LICENSE file.

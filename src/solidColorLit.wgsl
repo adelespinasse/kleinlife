@@ -1,6 +1,11 @@
 // WebGPU shaders for drawing the filled-in quadrilaterals of the live Life
 // cells, with a simple lighting model.
 
+// The code in this file was originally from
+// https://webgpu.github.io/webgpu-samples/?sample=wireframe
+// and licensed under the BSD 3-Clause "Revised" license (2019).
+// It has been modified and extended by Alan deLespinasse.
+
 struct Uniforms {
   worldViewProjectionMatrix: mat4x4f,
   worldMatrix: mat4x4f,

@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="/KleinBottle64.png">
   <title>Klein Bottle Life</title>
   <style>
     html, body { height: 100%; margin: 0; background: #0b0e14; color: #e6e6e6; font-family: sans-serif; }
@@ -54,9 +55,9 @@
       font-weight: bold;
     }
     #help {
-      width: 30em;
+      width: 33em;
       max-width: 100vw;
-      max-height: 100vh;
+      max-height: calc(100vh - 3em);
       overflow-y: auto;
       padding: 1em;
       box-sizing: border-box;
@@ -75,6 +76,9 @@
     input[type=range] { width: 160px; }
     input[type=number] { width: 2.5em; }
     .hidden { display: none }
+    #license-text {
+      font-size: smaller;
+    }
   </style>
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-C80RSP507Z"></script>
@@ -123,19 +127,13 @@
           <option value="gliders">Random gliders</option>
           <option value="oneglider">One glider</option>
           <option value="rings">Rings</option>
-          <!-- <option value="stripes">Stripes</option> -->
           <option value="randomrings">Random rings</option>
           <option value="randomstripes">Random stripes</option>
           <option value="squares">Squares</option>
           <option value="empty">Empty</option>
-          <!-- <option value=""></option>
-          <option value=""></option> -->
         </select>
       </div>
     </header>
-    <!-- <header id="debug">
-      ...
-    </header> -->
     <div id="help">
       <p>
         This is <a href="https://en.wikipedia.org/wiki/Conway's_Game_of_Life">Conway's
@@ -144,20 +142,28 @@
       </p>
       <p>
         Implemented using <a
-        href="https://developer.mozilla.org/en-US/docs/Web/API/WebGPU_API">WebGPU</a>,
-        including a WebGPU compute shader to run the Game of Life. Rendering
-        code adapted from <a
-        href="https://webgpu.github.io/webgpu-samples/?sample=wireframe">this
-        example</a>. Game of Life shader adapted from <a
-        href="https://codelabs.developers.google.com/your-first-webgpu-app">this
-        codelab</a> (with a twist at the grid's edge because of the way the
-        surface wraps around).
+        href="https://developer.mozilla.org/en-US/docs/Web/API/WebGPU_API">WebGPU</a>.
       </p>
       <p>
-        Written in 2025 by <a href="https://aldel.com">Alan deLespinasse</a>,
+        Rendering code adapted from <a
+        href="https://webgpu.github.io/webgpu-samples/?sample=wireframe">WebGPU Samples</a>,
+        licensed under the BSD 3-Clause License.
+      </p>
+      <p>
+        Game of Life shader adapted from <a
+        href="https://codelabs.developers.google.com/your-first-webgpu-app">Your
+        first WebGPU app</a> (Google Chrome team), licensed under Apache 2.0.
+      </p>
+      <p>
+        &copy; 2025 by <a href="https://aldel.com">Alan deLespinasse</a>,
         who obviously has nothing more important to do.
       </p>
+      <p>
+        <a href="https://github.com/adelespinasse/kleinlife">Source code</a>
+      </p>
       <button id="help-dismiss">Ok cool</button>
+      <button id="license-link">Full license info ▼</button>
+      <pre id="license-text"></pre>
     </div>
     <canvas id="the-canvas"></canvas>
   </div>

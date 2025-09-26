@@ -1,3 +1,8 @@
+// Some of this code was originally from
+// https://github.com/GoogleChromeLabs/your-first-webgpu-app-codelab
+// and licensed under the Apache License version 2.0.
+// It has been extensively modified by Alan deLespinasse.
+
 import lifeShaderCode from './life.wgsl?raw';
 
 const WORKGROUP_SIZE = 8;

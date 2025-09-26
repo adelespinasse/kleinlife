@@ -1,3 +1,8 @@
+// Much of the code in this file was originally from
+// https://webgpu.github.io/webgpu-samples/?sample=wireframe
+// and licensed under the BSD 3-Clause "Revised" license (2019).
+// It has been modified and extended by Alan deLespinasse.
+
 import { mat4, mat3, vec3, type Vec3Arg } from 'wgpu-matrix';
 import solidColorLitWGSL from './solidColorLit.wgsl?raw';
 import wireframeWGSL from './wireframe.wgsl?raw';
@@ -14,6 +19,7 @@ import {
   moveCameraTowardsGoal,
   cameraClose,
 } from './camera';
+import licenseText from '../LICENSE?raw';
 
 // Parameters that can be set in URL
 const params = new URLSearchParams(window.location.search);
@@ -77,14 +83,27 @@ function saveOrbit() {
 }
 
 const helpButton = document.getElementById('help-button') as HTMLButtonElement;
+const licenseLink = document.getElementById('license-link') as HTMLLinkElement;
 const help = document.getElementById('help')!;
 const helpDismiss = document.getElementById('help-dismiss') as HTMLButtonElement;
 helpButton.addEventListener('click', () => {
-  help.style.display = 'block';
-})
+  if (!help.style.display || help.style.display === 'none') {
+    help.style.display = 'block';
+  } else {
+    help.style.display = 'none';
+  }
+});
 helpDismiss.addEventListener('click', () => {
   help.style.display = 'none';
-})
+});
+licenseLink.addEventListener('click', () => {
+  const textEl = document.getElementById('license-text') as HTMLElement;
+  if (!textEl.innerText.trim()) {
+    textEl.innerText = licenseText;
+  } else {
+    textEl.innerText = '';
+  }
+});
 
 const edgesCheckbox = document.getElementById('edges') as HTMLInputElement;
 const facesCheckbox = document.getElementById('faces') as HTMLInputElement;

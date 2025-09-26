@@ -1,5 +1,7 @@
-// WebGPU compute shader for running Conway's Game of Life. Adapted from
+// WebGPU compute shader for running Conway's Game of Life. Originally from
 // https://codelabs.developers.google.com/your-first-webgpu-app
+// which was licensed under the Apache License version 2.0.
+// It has been modified by Alan deLespinasse.
 
 @group(0) @binding(0) var<uniform> grid: vec2f;
 

@@ -42,6 +42,8 @@ const hexColor = params.get('color');
 // regular line-line wireframe rendering.
 // https://web.archive.org/web/20130424093557/http://codeflow.org/entries/2012/aug/02/easy-wireframe-display-with-barycentric-coordinates/
 const bcWireframe = params.get('bcw') !== null;
+const bcwWidth = Number(params.get('bcwWidth')) || 3; // line width for bc wireframe
+const bcwAlphaThreshold = Number(params.get('bcwAlphaThresh')) || 0.3 // Affects antialiasing of bc wireframe
 
 // Settings persisted from a previous session
 const savedSettings = JSON.parse(
@@ -566,12 +568,21 @@ const litBindGroup = device.createBindGroup({
   layout: litBindGroupLayout,
   entries: [{ binding: 0, resource: { buffer: uniformBuffer } }],
 });
+const bcwLineUniformValues = new Float32Array(2);
+bcwLineUniformValues[0] = bcwWidth;
+bcwLineUniformValues[1] = bcwAlphaThreshold;
+const bcwLineUniformBuffer = device.createBuffer({
+  size: bcwLineUniformValues.byteLength,
+  usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+});
+device.queue.writeBuffer(bcwLineUniformBuffer, 0, bcwLineUniformValues);
 const wireframeBindGroup = device.createBindGroup({
   layout: wireframePipeline.getBindGroupLayout(0),
   entries: [
     { binding: 0, resource: { buffer: uniformBuffer } },
     { binding: 1, resource: { buffer: model.vertexBuffer } },
     { binding: 2, resource: { buffer: model.indexBuffer } },
+    { binding: 3, resource: { buffer: bcwLineUniformBuffer }},
   ],
 });
 const scale = 8;

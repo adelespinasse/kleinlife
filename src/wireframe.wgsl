@@ -59,6 +59,13 @@ struct VSOut {
 
 // Barycentric coordinates based wireframe shaders.
 
+struct LineUniforms {
+  width: f32,
+  alphaThreshold: f32,
+};
+
+@group(0) @binding(3) var<uniform> line: LineUniforms;
+
 struct bcVSOutput {
   @builtin(position) position: vec4f,
   @location(0) barycenticCoord: vec3f,
@@ -86,7 +93,7 @@ struct bcVSOutput {
 
 fn edgeFactor(bary: vec3f) -> f32 {
   let d = fwidth(bary);
-  let a3 = smoothstep(vec3f(0.0), d * 3, bary); // d * line thickness
+  let a3 = smoothstep(vec3f(0.0), d * line.width, bary);
   return min(a3.y, a3.z); // ignoring a3.x removes the diagonal lines in each square
 }
 
@@ -96,7 +103,7 @@ fn edgeFactor(bary: vec3f) -> f32 {
   // Pixels are only drawn near the first two edges. The edge factor fades out as it
   // gets further from the edge for an antialiasing effect.
   let a = 1.0 - edgeFactor(vIn.barycenticCoord);
-  if (a < 0.1) { // alpha threshold
+  if (a < line.alphaThreshold) {
     // Don't bother drawing pixels that are very close to invisible.
     discard;
   }

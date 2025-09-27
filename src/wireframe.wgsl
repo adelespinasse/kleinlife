@@ -5,6 +5,7 @@
 // and licensed under the BSD 3-Clause "Revised" license (2019).
 // It has been modified and extended by Alan deLespinasse.
 
+// Uniforms and storage used by both wireframe rendering methods.
 struct Uniforms {
   worldViewProjectionMatrix: mat4x4f,
   worldMatrix: mat4x4f,
@@ -15,14 +16,17 @@ struct Uniforms {
   wireBrightnessDistance: f32,
 };
 
+@group(0) @binding(0) var<uniform> uni: Uniforms;
+@group(0) @binding(1) var<storage, read> positions: array<f32>;
+@group(0) @binding(2) var<storage, read> indices: array<u32>;
+
+
+// Normal line-list wireframe shaders.
+
 struct VSOut {
   @builtin(position) position: vec4f,
   @location(0) distance: f32,
 };
-
-@group(0) @binding(0) var<uniform> uni: Uniforms;
-@group(0) @binding(1) var<storage, read> positions: array<f32>;
-@group(0) @binding(2) var<storage, read> indices: array<u32>;
 
 @vertex fn vsIndexedU32(@builtin(vertex_index) vNdx: u32) -> VSOut {
   // For each quad (2 triangles) we have 6 vertex indices. We draw only two edges
@@ -48,5 +52,56 @@ struct VSOut {
 }
 
 @fragment fn fs(vIn: VSOut) -> @location(0) vec4f {
+  // Lines are grey, with brightness determined by distance.
   return vec4f(max(0.2, 0.6 - (vIn.distance - uni.wireBrightnessDistance) * 0.008));
+}
+
+
+// Barycentric coordinates based wireframe shaders.
+
+struct bcVSOutput {
+  @builtin(position) position: vec4f,
+  @location(0) barycenticCoord: vec3f,
+  @location(1) distance: f32,
+};
+
+@vertex fn vsIndexedU32bcLines(
+  @builtin(vertex_index) vNdx: u32
+) -> bcVSOutput {
+  let vertNdx = vNdx % 3;
+  let index = indices[vNdx];
+
+  let pNdx = index * 14; // Stride in 4-byte words
+  let position = vec4f(positions[pNdx], positions[pNdx + 1], positions[pNdx + 2], 1);
+
+  var vOut: bcVSOutput;
+  vOut.position = uni.worldViewProjectionMatrix * position;
+
+  // emit a barycentric coordinate
+  vOut.barycenticCoord = vec3f(0);
+  vOut.barycenticCoord[vertNdx] = 1.0;
+  vOut.distance = vOut.position.z;
+  return vOut;
+}
+
+fn edgeFactor(bary: vec3f) -> f32 {
+  let d = fwidth(bary);
+  let a3 = smoothstep(vec3f(0.0), d * 3, bary); // d * line thickness
+  return min(a3.y, a3.z); // ignoring a3.x removes the diagonal lines in each square
+}
+
+@fragment fn fsbcLines(
+  vIn: bcVSOutput
+) -> @location(0) vec4f {
+  // Pixels are only drawn near the first two edges. The edge factor fades out as it
+  // gets further from the edge for an antialiasing effect.
+  let a = 1.0 - edgeFactor(vIn.barycenticCoord);
+  if (a < 0.1) { // alpha threshold
+    // Don't bother drawing pixels that are very close to invisible.
+    discard;
+  }
+
+  // Lines are grey, with brightness determined by distance. Alpha is also set to a so that
+  // we get some antialiasing effect even when the line is drawn on top of filled-in cells.
+  return vec4(vec3(a, a, a) * max(0.2, 0.6 - (vIn.distance - uni.wireBrightnessDistance) * 0.008), a);
 }

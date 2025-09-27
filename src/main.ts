@@ -38,6 +38,10 @@ const fovY = Number(params.get('fovy')) || 60;
 const clipNear = Number(params.get('clipnear')) || 0.1;
 const clipFar = Number(params.get('clipfar')) || 500;
 const hexColor = params.get('color');
+// bcw enables barycentric coordinates-based wireframe shaders instead of the
+// regular line-line wireframe rendering.
+// https://web.archive.org/web/20130424093557/http://codeflow.org/entries/2012/aug/02/easy-wireframe-display-with-barycentric-coordinates/
+const bcWireframe = params.get('bcw') !== null;
 
 // Settings persisted from a previous session
 const savedSettings = JSON.parse(
@@ -456,30 +460,74 @@ const litPipeline: GPURenderPipeline = device.createRenderPipeline({
   }
 });
 
-const wireframePipeline = device.createRenderPipeline({
-  label: 'wireframe pipeline',
-  layout: 'auto',
-  vertex: {
-    module: wireframeModule,
-    entryPoint: 'vsIndexedU32',
-  },
-  fragment: {
-    module: wireframeModule,
-    entryPoint: 'fs',
-    targets: [{ format: presentationFormat }],
-  },
-  primitive: {
-    topology: 'line-list',
-  },
-  depthStencil: {
-    depthWriteEnabled: true,
-    depthCompare: 'less-equal',
-    format: depthFormat,
-  },
-  multisample: {
-    count: msaaSampleCount,
-  },
-});
+const wireframePipeline = bcWireframe
+  // Barycentric coordinates based wireframe pipeline
+  ? device.createRenderPipeline({
+      label: 'barycentric coordinates based wireframe pipeline',
+      layout: 'auto',
+      vertex: {
+        module: wireframeModule,
+        entryPoint: 'vsIndexedU32bcLines',
+      },
+      fragment: {
+        module: wireframeModule,
+        entryPoint: 'fsbcLines',
+        targets: [
+          {
+            format: presentationFormat,
+            blend: {
+              color: {
+                srcFactor: 'one',
+                dstFactor: 'one-minus-src-alpha',
+              },
+              alpha: {
+                srcFactor: 'one',
+                dstFactor: 'zero',
+              },
+            },
+          },
+        ],
+      },
+      primitive: {
+        // The shaders for barycentric coordinates based wireframe actually
+        // draw filled-in triangles, except that they "discard" any pixels that
+        // are not near the first two edges.
+        topology: 'triangle-list',
+      },
+      depthStencil: {
+        depthWriteEnabled: true,
+        depthCompare: 'less-equal',
+        format: depthFormat,
+      },
+      multisample: {
+        count: msaaSampleCount,
+      },
+    })
+  // regular line-list based wireframe pipeline
+  : device.createRenderPipeline({
+      label: 'wireframe pipeline',
+      layout: 'auto',
+      vertex: {
+        module: wireframeModule,
+        entryPoint: 'vsIndexedU32',
+      },
+      fragment: {
+        module: wireframeModule,
+        entryPoint: 'fs',
+        targets: [{ format: presentationFormat }],
+      },
+      primitive: {
+        topology: 'line-list',
+      },
+      depthStencil: {
+        depthWriteEnabled: true,
+        depthCompare: 'less-equal',
+        format: depthFormat,
+      },
+      multisample: {
+        count: msaaSampleCount,
+      },
+    });
 
 // Make a uniform buffer and type array views
 // for our uniforms.
@@ -813,10 +861,18 @@ function render(ts: number) {
   if (settings.edges) {
     pass.setPipeline(wireframePipeline);
     pass.setBindGroup(0, wireframeBindGroup);
-    // For each quad (2 triangles) we have 6 vertex indices. We draw only two edges
-    // of the quad to make a rectangular mesh (the other two are drawn by adjacent quads).
-    // Each edge is 2 vertices, so we draw 4 vertices per quad.
-    pass.draw(model.vertexCount * 4 / 6);
+    if (bcWireframe) {
+      // The barycentric coordinates wireframe shaders draw triangles (although
+      // most of the triangle is invisible, only pixels near the first two
+      // edges are drawn), so we give it the full pixel count.
+      pass.draw(model.vertexCount);
+    } else {
+      // In the "line-list" wireframe shaders, for each quad (2 triangles) we
+      // have 6 vertex indices. We draw only two edges of the quad to make a
+      // rectangular mesh (the other two are drawn by adjacent quads). Each
+      // edge is 2 vertices, so we draw 4 vertices per quad.
+      pass.draw(model.vertexCount * 4 / 6);
+    }
   }
 
   pass.end();

@@ -48,6 +48,5 @@ struct VSOut {
 }
 
 @fragment fn fs(vIn: VSOut) -> @location(0) vec4f {
-  // This works well when the default camera distance is 150.
   return vec4f(max(0.2, 0.6 - (vIn.distance - uni.wireBrightnessDistance) * 0.008));
 }

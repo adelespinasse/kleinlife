@@ -7,13 +7,17 @@ View on the web at [kleinlife.aldel.com](https://kleinlife.aldel.com).
 Requires Node.js and npm.
 
 To install, clone this repo and cd into its root directory, then run:
-
 ```
 npm install
 npm run dev
 ```
 
 Load the URL printed by the dev script in your browser.
+
+To build a production version in the `dist/` directory:
+```
+npm run build
+```
 
 ## Organization
 
@@ -26,6 +30,13 @@ Load the URL printed by the dev script in your browser.
     * `solidColorLit.wgsl`: Shaders for the solid-color quadrilaterals representing live Life cells.
     * `wireframe.wgsl`: Shaders for the wireframe model.
     * `life.wgsl`: Compute shader to run Life.
+
+## Technology used
+
+* <a href="https://developer.mozilla.org/en-US/docs/Web/API/WebGPU_API">WebGPU</a> (for 3D rendering and Game of Life iteration)
+* <a href="https://vite.dev/">Vite</a> for fast building
+* <a href="https://typescriptlang.org/">TypeScript</a> for type-checked code
+* <a href="https://firebase.google.com/">Firebase</a> for hosting
 
 ## Licensing
 

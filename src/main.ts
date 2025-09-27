@@ -533,7 +533,7 @@ const wireframePipeline = bcWireframe
 
 // Make a uniform buffer and type array views
 // for our uniforms.
-const uniformValues = new ArrayBuffer(4 * Math.max(16 + 16 + 3, 144));
+const uniformValues = new ArrayBuffer(4 * Math.max(16 + 16 + 3 + 2, 144));
 const uniformBuffer = device.createBuffer({
   size: uniformValues.byteLength,
   usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -543,6 +543,7 @@ const kWorldViewProjectionMatrixOffset = 0;
 const kWorldMatrixOffset = 16 * f32bytes;
 const kSegmentsOffset = kWorldMatrixOffset + 16 * f32bytes;
 const kWireBrightnessDistanceOffset = kSegmentsOffset + 2 * f32bytes;
+const kBcwParamsOffset = kWireBrightnessDistanceOffset + f32bytes;
 const worldViewProjectionMatrixValue = new Float32Array(
   uniformValues,
   kWorldViewProjectionMatrixOffset,
@@ -562,27 +563,27 @@ const wireBrightnessDistance = new Float32Array(
   uniformValues,
   kWireBrightnessDistanceOffset,
   1,
-)
+);
+const bcwParams = new Float32Array(
+  uniformValues,
+  kBcwParamsOffset,
+  2,
+);
+bcwParams[0] = bcwWidth;
+bcwParams[1] = bcwAlphaThreshold;
 // Make a bind group for this uniform
 const litBindGroup = device.createBindGroup({
+  label: 'Lit pipeline bind group',
   layout: litBindGroupLayout,
   entries: [{ binding: 0, resource: { buffer: uniformBuffer } }],
 });
-const bcwLineUniformValues = new Float32Array(2);
-bcwLineUniformValues[0] = bcwWidth;
-bcwLineUniformValues[1] = bcwAlphaThreshold;
-const bcwLineUniformBuffer = device.createBuffer({
-  size: bcwLineUniformValues.byteLength,
-  usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-});
-device.queue.writeBuffer(bcwLineUniformBuffer, 0, bcwLineUniformValues);
 const wireframeBindGroup = device.createBindGroup({
+  label: 'Wireframe pipeline bind group',
   layout: wireframePipeline.getBindGroupLayout(0),
   entries: [
     { binding: 0, resource: { buffer: uniformBuffer } },
     { binding: 1, resource: { buffer: model.vertexBuffer } },
     { binding: 2, resource: { buffer: model.indexBuffer } },
-    { binding: 3, resource: { buffer: bcwLineUniformBuffer }},
   ],
 });
 const scale = 8;

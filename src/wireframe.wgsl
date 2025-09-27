@@ -14,6 +14,9 @@ struct Uniforms {
   // Lines that are closer are drawn brighter. This is the distance that is drawn
   // at average brightness. It is modified based on the camera position.
   wireBrightnessDistance: f32,
+  // Parameters used only by barycentric coordinates based shaders
+  bcwWidth: f32,
+  bcwAlphaThreshold: f32,
 };
 
 @group(0) @binding(0) var<uniform> uni: Uniforms;
@@ -59,13 +62,6 @@ struct VSOut {
 
 // Barycentric coordinates based wireframe shaders.
 
-struct LineUniforms {
-  width: f32,
-  alphaThreshold: f32,
-};
-
-@group(0) @binding(3) var<uniform> line: LineUniforms;
-
 struct bcVSOutput {
   @builtin(position) position: vec4f,
   @location(0) barycenticCoord: vec3f,
@@ -93,7 +89,7 @@ struct bcVSOutput {
 
 fn edgeFactor(bary: vec3f) -> f32 {
   let d = fwidth(bary);
-  let a3 = smoothstep(vec3f(0.0), d * line.width, bary);
+  let a3 = smoothstep(vec3f(0.0), d * uni.bcwWidth, bary);
   return min(a3.y, a3.z); // ignoring a3.x removes the diagonal lines in each square
 }
 
@@ -103,7 +99,7 @@ fn edgeFactor(bary: vec3f) -> f32 {
   // Pixels are only drawn near the first two edges. The edge factor fades out as it
   // gets further from the edge for an antialiasing effect.
   let a = 1.0 - edgeFactor(vIn.barycenticCoord);
-  if (a < line.alphaThreshold) {
+  if (a < uni.bcwAlphaThreshold) {
     // Don't bother drawing pixels that are very close to invisible.
     discard;
   }

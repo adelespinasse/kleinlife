@@ -38,7 +38,7 @@ const fovY = Number(params.get('fovy')) || 60;
 const clipNear = Number(params.get('clipnear')) || 0.1;
 const clipFar = Number(params.get('clipfar')) || 500;
 const hexColor = params.get('color');
-const showFrameRate = params.get('fr') !== null;
+const showFrameRate = params.get('fps') !== null;
 // bcw enables barycentric coordinates-based wireframe shaders instead of the
 // regular line-line wireframe rendering.
 // https://web.archive.org/web/20130424093557/http://codeflow.org/entries/2012/aug/02/easy-wireframe-display-with-barycentric-coordinates/

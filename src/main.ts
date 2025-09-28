@@ -38,6 +38,7 @@ const fovY = Number(params.get('fovy')) || 60;
 const clipNear = Number(params.get('clipnear')) || 0.1;
 const clipFar = Number(params.get('clipfar')) || 500;
 const hexColor = params.get('color');
+const showFrameRate = params.get('fr') !== null;
 // bcw enables barycentric coordinates-based wireframe shaders instead of the
 // regular line-line wireframe rendering.
 // https://web.archive.org/web/20130424093557/http://codeflow.org/entries/2012/aug/02/easy-wireframe-display-with-barycentric-coordinates/
@@ -111,6 +112,10 @@ licenseLink.addEventListener('click', () => {
   }
 });
 
+const frameRateElement = document.getElementById('frame-rate') as HTMLElement;
+if (showFrameRate) {
+  frameRateElement.style.display = 'flex';
+}
 const edgesCheckbox = document.getElementById('edges') as HTMLInputElement;
 const facesCheckbox = document.getElementById('faces') as HTMLInputElement;
 const animateCheckbox = document.getElementById('animate') as HTMLInputElement;
@@ -700,6 +705,8 @@ function getAntCameraTransform(progress: number, immersionType: string): CameraP
 let lastFrame: number | undefined;
 let lastLifeStep: number | undefined;
 let cameraPosition: CameraPosition | undefined;
+let frameRateCounter = 0;
+let lastFrameRateCheckpoint = 0;
 function render(ts: number) {
   if (lastLifeStep === undefined) {
     lastLifeStep = ts;
@@ -713,6 +720,7 @@ function render(ts: number) {
 
   if (lastFrame === undefined) {
     lastFrame = ts;
+    lastFrameRateCheckpoint = ts;
   }
   const deltaTime = ts - lastFrame;
   if (settings.animate) {
@@ -730,6 +738,15 @@ function render(ts: number) {
     }
   }
   lastFrame = ts;
+  if (showFrameRate) {
+    frameRateCounter++;
+    const nextFrameRateCheckpoint = lastFrameRateCheckpoint + 1000;
+    if (ts > nextFrameRateCheckpoint) {
+      lastFrameRateCheckpoint = nextFrameRateCheckpoint;
+      frameRateElement.innerText = 'FPS: ' + frameRateCounter;
+      frameRateCounter = 0;
+    }
+  }
 
   // Get the current texture from the canvas context and
   // set it as the texture to render to.

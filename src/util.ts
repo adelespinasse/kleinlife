@@ -1,3 +1,8 @@
+// This file was originally from
+// https://webgpu.github.io/webgpu-samples/?sample=wireframe
+// and licensed under the BSD 3-Clause "Revised" license (2019).
+// It has been slightly modified by Alan deLespinasse.
+
 // Show an error dialog if there's any uncaught exception or promise rejection.
 // This gets set up on all pages that include util.ts.
 globalThis.addEventListener('unhandledrejection', (ev) => {

@@ -278,6 +278,7 @@ const adapter = await navigator.gpu?.requestAdapter({
   featureLevel: 'compatibility',
 });
 quitIfAdapterNotAvailable(adapter);
+console.log(adapter.info);
 const limits: Record<string, GPUSize32> = {};
 quitIfLimitLessThan(adapter, 'maxStorageBuffersInVertexStage', 2, limits);
 const device = await adapter?.requestDevice({

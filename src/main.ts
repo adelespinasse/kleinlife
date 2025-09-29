@@ -20,6 +20,25 @@ import {
   cameraClose,
 } from './camera';
 import licenseText from '../LICENSE?raw';
+import VideoWorker from './videoWorker?worker';
+const videoWorker = new VideoWorker();
+videoWorker.addEventListener('message', (event) => {
+  const { type, data } = event.data;
+  switch (type) {
+    case 'started':
+      console.log('Video recording started');
+      break;
+    case 'stopped':
+      console.log(`Video recording stopped. ${data?.frameCount || 0} frames recorded`);
+      break;
+    case 'error':
+      console.error('Video worker error:', data?.error);
+      savingVideo = false; // Reset recording state on error
+      break;
+    default:
+      console.log('Message from worker:', event.data);
+  }
+});
 
 // Parameters that can be set in URL
 const params = new URLSearchParams(window.location.search);
@@ -116,6 +135,7 @@ const frameRateElement = document.getElementById('frame-rate') as HTMLElement;
 if (showFrameRate) {
   frameRateElement.style.display = 'flex';
 }
+const recIndicatorElement = document.getElementById('rec-indicator') as HTMLElement;
 const edgesCheckbox = document.getElementById('edges') as HTMLInputElement;
 const facesCheckbox = document.getElementById('faces') as HTMLInputElement;
 const animateCheckbox = document.getElementById('animate') as HTMLInputElement;
@@ -201,6 +221,7 @@ const hotKeys: Record<string, () => void> = {
     helpButton.focus();
     helpButton.blur();
   },
+  'v': startStopVideo,
 };
 window.addEventListener('keydown', (event) => {
   if (event.altKey || event.ctrlKey || event.metaKey) {
@@ -288,9 +309,16 @@ quitIfWebGPUNotAvailable(adapter, device);
 
 const canvas = document.getElementById('the-canvas') as HTMLCanvasElement;
 const context = canvas.getContext('webgpu') as GPUCanvasContext;
-const devicePixelRatio = window.devicePixelRatio;
-canvas.width = canvas.clientWidth * devicePixelRatio;
-canvas.height = canvas.clientHeight * devicePixelRatio;
+
+// const devicePixelRatio = window.devicePixelRatio;
+canvas.style.width = canvas.clientWidth + 'px';
+canvas.style.height = canvas.clientWidth * 9 / 16 + 'px';
+canvas.width = 3840;
+canvas.height = 2160;
+// console.log(canvas.clientWidth, canvas.clientHeight);
+// canvas.width = 3840;
+// canvas.height = 2160;
+
 const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 context.configure({
   device,
@@ -703,6 +731,34 @@ function getAntCameraTransform(progress: number, immersionType: string): CameraP
   };
 }
 
+let savingVideo = false;
+async function startStopVideo() {
+  if (savingVideo) {
+    savingVideo = false;
+    videoWorker.postMessage({ type: 'stop'});
+    recIndicatorElement.style.display = 'none';
+  } else {
+    try {
+      const handle = await showSaveFilePicker({
+        suggestedName: 'kleinlife.mp4',
+        types: [{
+          description: 'Video File',
+          accept: {'video/mp4' :['.mp4']}
+        }],
+      });
+      savingVideo = true;
+      recIndicatorElement.style.display = 'flex';
+      videoWorker.postMessage({ type: 'start', handle });
+    } catch (error) {
+      // Probably the user aborted the save dialog, which is fine
+      console.log('Error:', error);
+      recIndicatorElement.style.display = 'flex';
+      savingVideo = false;
+    }
+  }
+}
+
+
 let lastFrame: number | undefined;
 let lastLifeStep: number | undefined;
 let cameraPosition: CameraPosition | undefined;
@@ -752,6 +808,7 @@ function render(ts: number) {
   // Get the current texture from the canvas context and
   // set it as the texture to render to.
   const canvasTexture = context.getCurrentTexture();
+  // console.log(canvasTexture.width, canvasTexture.height);
 
   // If we don't have a depth texture OR if its size is different
   // from the canvasTexture when make a new depth texture
@@ -909,6 +966,17 @@ function render(ts: number) {
 
   const commandBuffer = encoder.finish();
   device.queue.submit([commandBuffer]);
+
+  // Capture frame for video recording if active
+  if (savingVideo) {
+    const videoFrame = new VideoFrame(canvas, {
+      timestamp: ts * 1000 // Convert to microseconds
+    });
+    videoWorker.postMessage({
+      type: 'frame',
+      frame: videoFrame
+    }, [videoFrame]);
+  }
 
   requestAnimationFrame(render);
 }

@@ -29,14 +29,16 @@
       white-space: nowrap;
       width: 100%;
       overflow: none;
+      opacity: 0.8;
+      z-index: 100;
     }
     header h1 { font-size: 1rem; font-weight: 600; margin: 0; opacity: .9; }
     header .spacer { flex: 1; }
     header .hint { font-size: .85rem; opacity: .7; }
     canvas {
-      width: 100%;
-      display: block;
-      flex: 1 1 auto;
+      width: 100vw;
+      height: 200px;
+      position: fixed;
     }
     .badge { padding: .2rem .5rem; border-radius: .5rem; background: #162033; border: 1px solid #202a41; font-size: .8rem; }
     .controls { display:flex; gap:.75rem; align-items:center; }
@@ -79,6 +81,7 @@
     #license-text {
       font-size: smaller;
     }
+    #rec-indicator { color: #ff4400; }
   </style>
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-C80RSP507Z"></script>
@@ -134,6 +137,7 @@
         </select>
       </div>
       <div class="control hidden" id="frame-rate">FPS: ?</div>
+      <div class="control hidden" id="rec-indicator">⬤</div>
     </header>
     <div id="help">
       <p>

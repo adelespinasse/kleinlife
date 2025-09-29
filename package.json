@@ -15,11 +15,13 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@types/wicg-file-system-access": "^2023.10.6",
     "@webgpu/types": "^0.1.64",
     "typescript": "~5.8.3",
     "vite": "^7.1.2"
   },
   "dependencies": {
+    "mediabunny": "^1.21.0",
     "wgpu-matrix": "^3.4.0"
   }
 }

@@ -11,22 +11,21 @@ let output: Output | null = null;
 let videoSource: EncodedVideoPacketSource | null = null;
 let isRecording = false;
 let frameCount = 0;
+let queueFull = false;
+const MAX_QUEUE_SIZE = 8;
 
 // Video encoding configuration
-const encoderConfig = {
-  codec: 'avc1.64003D', // H.264 baseline profile
+const encoderConfig: VideoEncoderConfig = {
+  codec: 'avc1.64003D', // H.264 high profile
   width: 3840,
   height: 2160,
-  bitrate: 50000000, // 50 Mbps
+  bitrate: 50000000,
   framerate: 60,
+  latencyMode: 'quality',
 };
 
 self.addEventListener('message', async (event) => {
   switch (event.data.type) {
-    case 'hi':
-      self.postMessage('hi there');
-      break;
-
     case 'start':
       await startRecording(event.data.handle);
       break;
@@ -36,9 +35,7 @@ self.addEventListener('message', async (event) => {
       break;
 
     case 'frame':
-      if (isRecording && encoder) {
-        encodeFrame(event.data.frame);
-      }
+      encodeFrame(event.data.frame);
       break;
   }
 });
@@ -78,7 +75,15 @@ async function startRecording(fileHandle: FileSystemFileHandle) {
       }
     });
 
+    queueFull = false;
     encoder.configure(encoderConfig);
+    encoder.addEventListener('dequeue', () => {
+      if (encoder && queueFull && encoder.encodeQueueSize < MAX_QUEUE_SIZE) {
+        // console.log('Unpausing queue:', encoder.encodeQueueSize);
+        self.postMessage({ type: 'queueNotFull' });
+        queueFull = false;
+      }
+    });
 
     // Start the output
     await output.start();
@@ -129,8 +134,19 @@ function encodeFrame(frame: VideoFrame) {
   }
 
   try {
-    encoder.encode(frame);
+    encoder.encode(
+      frame,
+      { keyFrame: (frameCount % 120) === 0 },
+    );
     frameCount++;
+    // if (Math.random() < 1) {
+    //   console.log('encodeQueueSize:', encoder.encodeQueueSize);
+    // }
+    if (encoder.encodeQueueSize >= MAX_QUEUE_SIZE) {
+      // console.log('Pausing queue:', encoder.encodeQueueSize);
+      queueFull = true;
+      self.postMessage({ type: 'queueFull' });
+    }
   } catch (error) {
     console.error('Failed to encode frame:', error);
     self.postMessage({ type: 'error', data: { error: (error as Error).message } });

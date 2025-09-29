@@ -21,24 +21,6 @@ import {
 } from './camera';
 import licenseText from '../LICENSE?raw';
 import VideoWorker from './videoWorker?worker';
-const videoWorker = new VideoWorker();
-videoWorker.addEventListener('message', (event) => {
-  const { type, data } = event.data;
-  switch (type) {
-    case 'started':
-      console.log('Video recording started');
-      break;
-    case 'stopped':
-      console.log(`Video recording stopped. ${data?.frameCount || 0} frames recorded`);
-      break;
-    case 'error':
-      console.error('Video worker error:', data?.error);
-      savingVideo = false; // Reset recording state on error
-      break;
-    default:
-      console.log('Message from worker:', event.data);
-  }
-});
 
 // Parameters that can be set in URL
 const params = new URLSearchParams(window.location.search);
@@ -731,7 +713,13 @@ function getAntCameraTransform(progress: number, immersionType: string): CameraP
   };
 }
 
+const videoWorker = new VideoWorker();
 let savingVideo = false;
+let videoQueueReady: Promise<void> | undefined;
+let resolveVideoQueueReady: (() => void) | undefined;
+const slomoFactor = 4;
+let videoStartTime = 0;
+
 async function startStopVideo() {
   if (savingVideo) {
     savingVideo = false;
@@ -741,7 +729,7 @@ async function startStopVideo() {
   } else {
     try {
       const handle = await showSaveFilePicker({
-        suggestedName: 'kleinlife.mp4',
+        suggestedName: `kleinlife${new Date().toISOString()}.mp4`,
         types: [{
           description: 'Video File',
           accept: {'video/mp4' :['.mp4']}
@@ -750,6 +738,7 @@ async function startStopVideo() {
       savingVideo = true;
       recIndicatorElement.style.display = 'flex';
       videoWorker.postMessage({ type: 'start', handle });
+      videoStartTime = performance.now();
     } catch (error) {
       // Probably the user aborted the save dialog, which is fine
       console.log('Error:', error);
@@ -759,6 +748,39 @@ async function startStopVideo() {
   }
 }
 
+videoWorker.addEventListener('message', (event) => {
+  const { type, data } = event.data;
+  switch (type) {
+    case 'started':
+      console.log('Video recording started');
+      break;
+    case 'stopped':
+      const now = performance.now();
+      console.log(`Video recording stopped. ${data?.frameCount || 0} frames recorded.`);
+      console.log(`${(now - videoStartTime) / 1000} seconds elapsed`);
+      console.log(`${(data?.frameCount || 0) / (now - videoStartTime) * 1000} frames encoded per second`);
+      break;
+    case 'queueFull':
+      videoQueueReady = new Promise((resolve) => {
+        resolveVideoQueueReady = resolve;
+      });
+      break;
+    case 'queueNotFull':
+      if (resolveVideoQueueReady) {
+        videoQueueReady = undefined;
+        resolveVideoQueueReady();
+        resolveVideoQueueReady = undefined;
+      }
+      break;
+    case 'error':
+      console.error('Video worker error:', data?.error);
+      savingVideo = false; // Reset recording state on error
+      break;
+    default:
+      console.log('Message from worker:', event.data);
+  }
+});
+
 
 let lastFrame: number | undefined;
 let lastLifeStep: number | undefined;
@@ -766,7 +788,8 @@ let cameraPosition: CameraPosition | undefined;
 let frameRateCounter = 0;
 let lastFrameRateCheckpoint = 0;
 let videoOutputStartTime = 0;
-function render(ts: number) {
+let ts = 0;
+while (true) {
   if (lastLifeStep === undefined) {
     lastLifeStep = ts;
   }
@@ -968,21 +991,33 @@ function render(ts: number) {
 
   const commandBuffer = encoder.finish();
   device.queue.submit([commandBuffer]);
+  // await device.queue.onSubmittedWorkDone();
 
   // Capture frame for video recording if active
   if (savingVideo) {
     if (!videoOutputStartTime) {
       videoOutputStartTime = ts;
     }
+    // Apparently the way to get the results of the GPU render as a VideoFrame
+    // is to grab it immediately after submitting the commands to the device.
+    // If I wait for device.queue.onSubmittedWorkDone() or for the next
+    // animation frame, apparently that is too late because the backing buffer
+    // will have been cleared, and that's what is grabbed, I guess?
     const videoFrame = new VideoFrame(canvas, {
-      timestamp: (ts - videoOutputStartTime) * 1000 // Convert to microseconds
+      timestamp: (ts - videoOutputStartTime) * 1000 * slomoFactor, // Convert to microseconds
     });
+    if (videoQueueReady) {
+      // console.log('Waiting for video queue to decrease');
+      await videoQueueReady;
+    }
     videoWorker.postMessage({
       type: 'frame',
       frame: videoFrame
     }, [videoFrame]);
+    await new Promise((resolve) => setTimeout(resolve, 1));
+  } else {
+    await new Promise((resolve) => requestAnimationFrame(resolve));
   }
 
-  requestAnimationFrame(render);
+  ts += (1000 / 60 / slomoFactor);
 }
-requestAnimationFrame(render);

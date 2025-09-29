@@ -737,6 +737,7 @@ async function startStopVideo() {
     savingVideo = false;
     videoWorker.postMessage({ type: 'stop'});
     recIndicatorElement.style.display = 'none';
+    videoOutputStartTime = 0;
   } else {
     try {
       const handle = await showSaveFilePicker({
@@ -764,6 +765,7 @@ let lastLifeStep: number | undefined;
 let cameraPosition: CameraPosition | undefined;
 let frameRateCounter = 0;
 let lastFrameRateCheckpoint = 0;
+let videoOutputStartTime = 0;
 function render(ts: number) {
   if (lastLifeStep === undefined) {
     lastLifeStep = ts;
@@ -969,8 +971,11 @@ function render(ts: number) {
 
   // Capture frame for video recording if active
   if (savingVideo) {
+    if (!videoOutputStartTime) {
+      videoOutputStartTime = ts;
+    }
     const videoFrame = new VideoFrame(canvas, {
-      timestamp: ts * 1000 // Convert to microseconds
+      timestamp: (ts - videoOutputStartTime) * 1000 // Convert to microseconds
     });
     videoWorker.postMessage({
       type: 'frame',

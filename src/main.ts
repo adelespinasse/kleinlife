@@ -717,7 +717,7 @@ const videoWorker = new VideoWorker();
 let savingVideo = false;
 let videoQueueReady: Promise<void> | undefined;
 let resolveVideoQueueReady: (() => void) | undefined;
-const slomoFactor = 4;
+const slomoFactor = 1;
 let videoStartTime = 0;
 
 async function startStopVideo() {

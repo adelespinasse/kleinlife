@@ -144,6 +144,9 @@ animateCheckbox.addEventListener('change', () => {
 antModeCheckbox.addEventListener('change', () => {
   antMode = !antMode;
   antModeTransition = true;
+  if (!antMode) {
+    orbit.elevation = 0.2;
+  }
 });
 const resetCameraButton = document.getElementById('reset-camera') as HTMLButtonElement;
 resetCameraButton.addEventListener('click', () => {
@@ -713,19 +716,22 @@ function getAntCameraTransform(progress: number, immersionType: string): CameraP
   };
 }
 
+const videoFrameRate = 60;
 const videoWorker = new VideoWorker();
 let savingVideo = false;
 let videoQueueReady: Promise<void> | undefined;
 let resolveVideoQueueReady: (() => void) | undefined;
-const slomoFactor = 1;
-let videoStartTime = 0;
+const slomoFactor = 2;
+let videoFrameCounter = 0;
+let videoRecordingStartTime = 0;
+let videoStartTs: number | undefined;
 
 async function startStopVideo() {
   if (savingVideo) {
     savingVideo = false;
     videoWorker.postMessage({ type: 'stop'});
     recIndicatorElement.style.display = 'none';
-    videoOutputStartTime = 0;
+    videoStartTs = undefined;
   } else {
     try {
       const handle = await showSaveFilePicker({
@@ -738,7 +744,8 @@ async function startStopVideo() {
       savingVideo = true;
       recIndicatorElement.style.display = 'flex';
       videoWorker.postMessage({ type: 'start', handle });
-      videoStartTime = performance.now();
+      videoRecordingStartTime = performance.now();
+      videoFrameCounter = 0;
     } catch (error) {
       // Probably the user aborted the save dialog, which is fine
       console.log('Error:', error);
@@ -756,9 +763,13 @@ videoWorker.addEventListener('message', (event) => {
       break;
     case 'stopped':
       const now = performance.now();
-      console.log(`Video recording stopped. ${data?.frameCount || 0} frames recorded.`);
-      console.log(`${(now - videoStartTime) / 1000} seconds elapsed`);
-      console.log(`${(data?.frameCount || 0) / (now - videoStartTime) * 1000} frames encoded per second`);
+      const framesEncoded = data?.frameCount || 0;
+      console.log(`Video recording stopped. ${framesEncoded} frames recorded.`);
+      if (framesEncoded !== videoFrameCounter) {
+        console.error(`Frames sent to video worker (${videoFrameCounter} != frames encoded (${framesEncoded})`);
+      }
+      console.log(`${(now - videoRecordingStartTime) / 1000} seconds elapsed`);
+      console.log(`${framesEncoded / (now - videoRecordingStartTime) * 1000} frames encoded per second`);
       break;
     case 'queueFull':
       videoQueueReady = new Promise((resolve) => {
@@ -787,7 +798,6 @@ let lastLifeStep: number | undefined;
 let cameraPosition: CameraPosition | undefined;
 let frameRateCounter = 0;
 let lastFrameRateCheckpoint = 0;
-let videoOutputStartTime = 0;
 let ts = 0;
 while (true) {
   if (lastLifeStep === undefined) {
@@ -924,6 +934,7 @@ while (true) {
     cameraPosition = moveCameraTowardsGoal(cameraPosition, goalCamera, deltaTime);
     if (cameraClose(cameraPosition, goalCamera)) {
       antModeTransition = false;
+      console.log('Ant mode transition finished');
     }
   } else {
     cameraPosition = goalCamera;
@@ -995,16 +1006,17 @@ while (true) {
 
   // Capture frame for video recording if active
   if (savingVideo) {
-    if (!videoOutputStartTime) {
-      videoOutputStartTime = ts;
+    if (videoStartTs === undefined) {
+      videoStartTs = ts;
     }
     // Apparently the way to get the results of the GPU render as a VideoFrame
     // is to grab it immediately after submitting the commands to the device.
     // If I wait for device.queue.onSubmittedWorkDone() or for the next
     // animation frame, apparently that is too late because the backing buffer
     // will have been cleared, and that's what is grabbed, I guess?
+    const videoTimeSec = videoFrameCounter / videoFrameRate;
     const videoFrame = new VideoFrame(canvas, {
-      timestamp: (ts - videoOutputStartTime) * 1000 * slomoFactor, // Convert to microseconds
+      timestamp: videoTimeSec * 1000000, // Convert to microseconds
     });
     if (videoQueueReady) {
       // console.log('Waiting for video queue to decrease');
@@ -1014,10 +1026,17 @@ while (true) {
       type: 'frame',
       frame: videoFrame
     }, [videoFrame]);
+    if ((videoFrameCounter % videoFrameRate) === 0) {
+      const videoTimeSlow = videoTimeSec / slomoFactor;
+      const minutesRecorded = Math.floor(videoTimeSlow / 60);
+      const secondsRecorded = Math.floor(videoTimeSlow - 60 * minutesRecorded);
+      recIndicatorElement.innerText = `⬤ ${minutesRecorded}:${String(secondsRecorded).padStart(2, '0')}`;
+    }
+    videoFrameCounter++;
     await new Promise((resolve) => setTimeout(resolve, 1));
+    ts += (1000 / videoFrameRate / slomoFactor);
   } else {
     await new Promise((resolve) => requestAnimationFrame(resolve));
+    ts += (1000 / videoFrameRate);
   }
-
-  ts += (1000 / 60 / slomoFactor);
 }

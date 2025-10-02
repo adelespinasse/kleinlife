@@ -43,7 +43,8 @@ function travelTowards(
 }
 
 /** Returns a vector that is on the unit great circle defined by start and end,
- * and is rotated by the specified angle. */
+ * and is rotated by the specified angle. Start and end are assumed to be unit
+ * vectors. */
 function rotateTowards(
   start: Vec3Arg,
   end: Vec3Arg,
@@ -53,20 +54,27 @@ function rotateTowards(
   if (angle < radians) {
     return end;
   }
-  // Ideally we cross start and end to find the great circle axis to rotate
-  // around; if they turn out to be too colinear, we try crossing start with
-  // the x, y, and z axes to find something perpendicular to start. At least
-  // two of them should work; i.e. it probably isn't necessary to try all 3
-  // axes.
-  for (const refAxis of [end, [1, 0, 0], [0, 1, 0], [0, 0, 1]]) {
-    const axis = vec3.cross(start, refAxis);
-    if (vec3.lengthSq(axis) > 0.0001) {
-      const rot = mat4.rotation(axis, radians);
-      return vec3.normalize(vec3.transformMat4(start, rot));
+
+  // Find axis that's perpendicular to both start and end
+  let axis = vec3.cross(start, end);
+  if (vec3.lengthSq(axis) < 0.000001) {
+    // Start and end are too colinear (either same direction or opposite)
+    if (angle < 1) {
+      // Same direction, just round off to end
+      return end;
+    }
+    // Opposite directions. Try crossing start with the x, y, and z axes to
+    // find something perpendicular to start. At least two of them should work;
+    // i.e. it probably isn't necessary to try all 3 axes.
+    for (const refAxis of [[1, 0, 0], [0, 1, 0], [0, 0, 1]]) {
+      axis = vec3.cross(start, refAxis);
+      if (vec3.lengthSq(axis) > 0.000001) {
+        break;
+      }
     }
   }
-  // Should never happen...
-  return end;
+  const rot = mat4.rotation(axis, radians);
+  return vec3.normalize(vec3.transformMat4(start, rot));
 }
 
 /** Given the current and desired positions of a camera, returns a camera

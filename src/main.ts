@@ -147,6 +147,8 @@ antModeCheckbox.addEventListener('change', () => {
   if (!antMode) {
     orbit.elevation = 0.2;
   }
+  prevGoalCamera = undefined;
+  console.log('Ant mode transition started');
 });
 const resetCameraButton = document.getElementById('reset-camera') as HTMLButtonElement;
 resetCameraButton.addEventListener('click', () => {
@@ -796,6 +798,7 @@ videoWorker.addEventListener('message', (event) => {
 let lastFrame: number | undefined;
 let lastLifeStep: number | undefined;
 let cameraPosition: CameraPosition | undefined;
+let prevGoalCamera: CameraPosition | undefined;
 let frameRateCounter = 0;
 let lastFrameRateCheckpoint = 0;
 let ts = 0;
@@ -931,9 +934,11 @@ while (true) {
   if (antModeTransition) {
     // When ant mode has been turned on or off, we don't want to jump to the
     // other POV, we want to do a smooth transition.
-    cameraPosition = moveCameraTowardsGoal(cameraPosition, goalCamera, deltaTime);
+    cameraPosition = moveCameraTowardsGoal(cameraPosition, goalCamera, deltaTime, prevGoalCamera);
+    prevGoalCamera = goalCamera;
     if (cameraClose(cameraPosition, goalCamera)) {
       antModeTransition = false;
+      prevGoalCamera = undefined;
       console.log('Ant mode transition finished');
     }
   } else {

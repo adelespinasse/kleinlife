@@ -29,7 +29,8 @@ function travelTowards(
   distance: number,
 ): Vec3Arg {
   const route = vec3.subtract(end, start);
-  if (vec3.length(route) < distance) {
+  // Don't move further than the goal.
+  if (vec3.lengthSq(route) < distance * distance) {
     return end;
   }
   const direction = vec3.normalize(route);
@@ -38,7 +39,6 @@ function travelTowards(
     distance,
     direction,
   );
-  // Don't move further than the goal.
   return vec3.add(start, direction);
 }
 
@@ -53,33 +53,47 @@ function rotateTowards(
   if (angle < radians) {
     return end;
   }
-  let axis = vec3.cross(start, end);
-  if (vec3.lengthSq(axis) < 0.0001) {
-    // This means start and end are either almost the same or almost opposite,
-    // so they don't accurately define a great circle. We look for a different
-    // axis that is perpendicular to start.
-    if (Math.abs(start[0]) < 0.8) {
-      axis = vec3.cross(start, [1, 0, 0]);
-    } else if (Math.abs(start[1]) < 0.8) {
-      axis = vec3.cross(start, [0, 1, 0]);
+  // Ideally we cross start and end to find the great circle axis to rotate
+  // around; if they turn out to be too colinear, we try crossing start with
+  // the x, y, and z axes to find something perpendicular to start. At least
+  // two of them should work; i.e. it probably isn't necessary to try all 3
+  // axes.
+  for (const refAxis of [end, [1, 0, 0], [0, 1, 0], [0, 0, 1]]) {
+    const axis = vec3.cross(start, refAxis);
+    if (vec3.lengthSq(axis) > 0.0001) {
+      const rot = mat4.rotation(axis, radians);
+      return vec3.normalize(vec3.transformMat4(start, rot));
     }
   }
-  const rot = mat4.rotation(axis, radians);
-  return vec3.normalize(vec3.transformMat4(start, rot));
+  // Should never happen...
+  return end;
 }
 
 /** Given the current and desired positions of a camera, returns a camera
  * position that is close to the current position, but moved slightly in the
  * direction of the desired position. Repeatedly calling this will (hopefully)
  * move the camera smoothly towards the desired position. If the current
- * position is undefined, the desired position is returned unmodified. */
+ * position is undefined, the desired position is returned unmodified.
+ *
+ * The previous desired position can optionally be provided as well; this
+ * enables the function to determine how fast the goal is moving, and make sure
+ * the camera moves at least as fast, so that it will eventually catch up. */
 export function moveCameraTowardsGoal(
   cameraPosition: CameraPosition | undefined,
   goalCamera: CameraPosition,
   deltaTime: number,
+  prevGoalCamera?: CameraPosition,
 ): CameraPosition {
   if (!cameraPosition) {
     return goalCamera;
+  }
+  let minEyeDistance = 0;
+  let minTargetDistance = 0;
+  let minUpChange = 0;
+  if (prevGoalCamera) {
+    minEyeDistance = 1.01 * vec3.distance(prevGoalCamera.eye, goalCamera.eye);
+    minTargetDistance = 1.01 * vec3.distance(prevGoalCamera.target, goalCamera.target);
+    minUpChange = 1.01 * vec3.angle(prevGoalCamera.up, goalCamera.up);
   }
   const originDistance = vec3.length(cameraPosition.eye);
 
@@ -88,7 +102,7 @@ export function moveCameraTowardsGoal(
   const eye = travelTowards(
     cameraPosition.eye,
     goalCamera.eye,
-    deltaTime * 0.0003 * Math.max(originDistance, 15),
+    Math.max(minEyeDistance, deltaTime * 0.0003 * Math.max(originDistance, 15)),
   );
 
   // Move the camera's target in a straight line towards the goal. Move faster
@@ -101,7 +115,7 @@ export function moveCameraTowardsGoal(
     cameraPosition.target,
     goalCamera.target,
     // slightly faster than the eye so it doesn't get behind
-    deltaTime * 0.00031 * Math.max(originDistance, 15),
+    Math.max(minTargetDistance, deltaTime * 0.00031 * Math.max(originDistance, 15)),
   );
   // If the target is too close to the eye, the direction won't be accurate
   // (worst case they're identical and we get a divide by zero). In that case
@@ -121,7 +135,7 @@ export function moveCameraTowardsGoal(
   const up = rotateTowards(
     cameraPosition.up,
     goalCamera.up,
-    0.0004 * deltaTime,
+    Math.max(minUpChange, 0.0003 * deltaTime),
   );
 
   return { eye, target, up };

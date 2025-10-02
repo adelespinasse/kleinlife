@@ -132,10 +132,12 @@ export function moveCameraTowardsGoal(
   // not quite right; it could end up being too close to the direction of the
   // camera (or its opposite), which makes the calculations inaccurate and
   // could lead to a divide by zero.
+  // Tilt faster when closer to the origin.
+  const distanceFactor = 1 - Math.min(Math.max(originDistance, 15) - 15, 200) / 300;
   const up = rotateTowards(
     cameraPosition.up,
     goalCamera.up,
-    Math.max(minUpChange, 0.0003 * deltaTime),
+    Math.max(minUpChange, 0.0006 * deltaTime * distanceFactor),
   );
 
   return { eye, target, up };

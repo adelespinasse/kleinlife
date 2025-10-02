@@ -1,6 +1,6 @@
 # Conway's Game of Life on a Klein bottle
 
-View on the web at [kleinlife.aldel.com](https://kleinlife.aldel.com).
+View on the web at [kleinbottlelife.aldel.com](https://kleinbottlelife.aldel.com).
 
 ## Development
 

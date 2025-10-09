@@ -23,12 +23,16 @@ import licenseText from '../LICENSE?raw';
 
 // Parameters that can be set in URL
 const params = new URLSearchParams(window.location.search);
-const tubularSegments = Number(params.get('x')) || 128; // Must be power of 2
-const radialSegments = Number(params.get('y')) || 64; // Must be power of 2
+const gridSize = params.get('grid') || '128x64'; // Must be powers of 2
+(document.getElementById('grid-select') as HTMLSelectElement).value = gridSize;
+const [tubularStr, radialStr] = gridSize.toLowerCase().split('x');
+const tubularSegments = Number(tubularStr) || 128;
+const radialSegments = Number(radialStr) || 64;
 const initPattern = (params.get('init') || 'random').toLowerCase();
 const msaaSampleCount = Number(params.get('msaa')) || 4; // Multisample AntiAliasing
 const msaa = msaaSampleCount !== 1;
 const immersion = params.get('immersion') || 'best'; // The shape to draw
+(document.getElementById('immersion-select') as HTMLSelectElement).value = immersion;
 let antMode = params.get('ant') !== null;
 let antModeTransition = false;
 let antProgress = 2.6 * Math.PI;
@@ -43,7 +47,15 @@ const showFrameRate = params.get('fps') !== null;
 // regular line-line wireframe rendering.
 // https://web.archive.org/web/20130424093557/http://codeflow.org/entries/2012/aug/02/easy-wireframe-display-with-barycentric-coordinates/
 const bcWireframe = params.get('bcw') !== null;
+const bcwElement = document.getElementById('bcw') as HTMLInputElement;
+bcwElement.checked = bcWireframe;
 const bcwWidth = Number(params.get('bcwWidth')) || 3; // line width for bc wireframe
+const bcwWidthElement = document.getElementById('bcw-width') as HTMLInputElement;
+bcwWidthElement.value = String(bcwWidth);
+bcwWidthElement.disabled = !bcWireframe;
+bcwElement.addEventListener('change', () => {
+  bcwWidthElement.disabled = !bcwElement.checked;
+});
 const bcwAlphaThreshold = Number(params.get('bcwAlphaThresh')) || 0.3 // Affects antialiasing of bc wireframe
 
 // Settings persisted from a previous session
@@ -90,7 +102,6 @@ function saveOrbit() {
 }
 
 const helpButton = document.getElementById('help-button') as HTMLButtonElement;
-const licenseLink = document.getElementById('license-link') as HTMLLinkElement;
 const help = document.getElementById('help')!;
 const helpDismiss = document.getElementById('help-dismiss') as HTMLButtonElement;
 helpButton.addEventListener('click', () => {
@@ -103,14 +114,22 @@ helpButton.addEventListener('click', () => {
 helpDismiss.addEventListener('click', () => {
   help.style.display = 'none';
 });
-licenseLink.addEventListener('click', () => {
-  const textEl = document.getElementById('license-text') as HTMLElement;
-  if (!textEl.innerText.trim()) {
-    textEl.innerText = licenseText;
-  } else {
-    textEl.innerText = '';
-  }
-});
+document.getElementById('license-toggle-section')!.innerText = licenseText;
+for (const section of document.getElementsByClassName('section-toggle')) {
+  section.addEventListener('click', (event) => {
+    event.preventDefault();
+    const target = event.currentTarget as HTMLElement;
+    const content = document.getElementById(target.id + '-section') as HTMLElement;
+    const toggleIndicator = target.querySelector('.section-toggle-indicator') as HTMLElement;
+    if (content.style.display === 'none' || !content.style.display) {
+      content.style.display = 'block';
+      toggleIndicator.innerText = '▼';
+    } else {
+      content.style.display = 'none';
+      toggleIndicator.innerText = '▶';
+    }
+  });
+}
 
 const frameRateElement = document.getElementById('frame-rate') as HTMLElement;
 if (showFrameRate) {

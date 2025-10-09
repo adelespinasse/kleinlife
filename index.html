@@ -73,12 +73,24 @@
     #help a {
       color: #406;
     }
+    #help button {
+      margin: 5px 0 0;
+    }
+    .help-toggle-section {
+      display: none;
+    }
+    #hot-keys-toggle-section, #advanced-toggle-section {
+      padding: 10px 0 10px 10px;
+    }
+    #advanced-toggle-section {
+      line-height: 1.3;
+    }
+    #license-toggle-section {
+      font-size: smaller;
+    }
     input[type=range] { width: 160px; }
     input[type=number] { width: 2.5em; }
     .hidden { display: none }
-    #license-text {
-      font-size: smaller;
-    }
   </style>
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-C80RSP507Z"></script>
@@ -165,9 +177,77 @@
       <p>
         <a href="https://github.com/adelespinasse/kleinlife">Source code</a>
       </p>
-      <button id="help-dismiss">Ok cool</button>
-      <button id="license-link">Full license info ▼</button>
-      <pre id="license-text"></pre>
+      <div>
+        <button id="help-dismiss">Ok cool</button>
+      </div>
+
+      <div>
+        <button id="hot-keys-toggle" class="section-toggle">
+          Hot keys
+          <span class="section-toggle-indicator">▶</span>
+        </button>
+        <div id="hot-keys-toggle-section" class="help-toggle-section">
+          <b>H</b>: Toggle help window<br/>
+          <b>R</b>: Reset camera<br/>
+          <b>A</b>: Toggle animation<br/>
+          <b>M</b>: Toggle ant mode<br/>
+          <b>+</b>: Increase Life speed<br/>
+          <b>-</b>: Decrease Life speed<br/>
+          <b>Space</b>: Single Life iteration<br/>
+        </div>
+      </div>
+
+      <div>
+        <button id="advanced-toggle" class="section-toggle">
+          Advanced options (requires reload)
+          <span class="section-toggle-indicator">▶</span>
+        </button>
+        <div id="advanced-toggle-section" class="help-toggle-section">
+          <form action="/" method="get">
+            <div>
+              <label for="grid-select">Grid size:</label>
+              <select name="grid" id="grid-select">
+                <option value="32x16">32x16</option>
+                <option value="64x32">64x32</option>
+                <option value="128x64">128x64</option>
+                <option value="256x128">256x128</option>
+                <option value="512x256">512x256</option>
+                <option value="1024x512">1024x512</option>
+              </select>
+            </div>
+            <div>
+              <label for="immersion-select">Shape:</label>
+              <select name="immersion" id="immersion-select">
+                <option value="best" selected>Default</option>
+                <option value="wiki">Wikipedia</option>
+                <option value="mathcurve">Mathcurve</option>
+                <option value="figure8">Figure 8</option>
+                <option value="pinched">Pinched torus</option>
+                <option value="rectangle">Rectangle</option>
+              </select>
+            </div>
+            <div>
+              <input type="checkbox" name="bcw" id="bcw"><label for="bcw">Wide lines</label>
+            </div>
+            <div>
+              &emsp;<label for="bcw-width">Line width:</label>
+              <input type="number" name="bcwWidth" id="bcw-width" min="1" max="10" step="0.5" value="3" />
+            </div>
+            <button type="submit">Apply changes</button>
+          </form>
+        </div>
+      </div>
+
+      <div>
+        <button id="license-toggle" class="section-toggle">
+          Full license info
+          <span class="section-toggle-indicator">▶</span>
+        </button>
+        <pre id="license-toggle-section" class="help-toggle-section">
+          <!-- Filled in by JS -->
+        </pre>
+      </div>
+
     </div>
     <canvas id="the-canvas"></canvas>
   </div>

@@ -415,148 +415,121 @@ const cellStateBindGroupLayout = device.createBindGroupLayout({
   }],
 });
 
-const litPipeline: GPURenderPipeline = device.createRenderPipeline({
-  label: 'lit pipeline',
-  layout: device.createPipelineLayout({
-    bindGroupLayouts: [litBindGroupLayout, cellStateBindGroupLayout],
-  }),
-  vertex: {
-    module: litModule,
-    buffers: [
-      {
-        arrayStride: 14 * 4,
-        attributes: [
-          {
-            // position
-            shaderLocation: 0,
-            offset: 0,
-            format: 'float32x3',
-          },
-          {
-            // normal
-            shaderLocation: 1,
-            offset: 3 * 4,
-            format: 'float32x3',
-          },
-          {
-            // front color
-            shaderLocation: 2,
-            offset: 6 * 4,
-            format: 'float32x3',
-          },
-          {
-            // back color
-            shaderLocation: 3,
-            offset: 9 * 4,
-            format: 'float32x3',
-          },
-          {
-            // tubular coordinate
-            shaderLocation: 4,
-            offset: 12 * 4,
-            format: 'float32',
-          },
-          {
-            // radial coordinate
-            shaderLocation: 5,
-            offset: 13 * 4,
-            format: 'float32',
-          },
-        ],
-      },
+const litVertexBuffers: GPUVertexBufferLayout[] = [
+  {
+    arrayStride: 14 * 4,
+    attributes: [
+      { shaderLocation: 0, offset: 0, format: 'float32x3' },        // position
+      { shaderLocation: 1, offset: 3 * 4, format: 'float32x3' },    // normal
+      { shaderLocation: 2, offset: 6 * 4, format: 'float32x3' },    // front color
+      { shaderLocation: 3, offset: 9 * 4, format: 'float32x3' },    // back color
+      { shaderLocation: 4, offset: 12 * 4, format: 'float32' },     // tubular coord
+      { shaderLocation: 5, offset: 13 * 4, format: 'float32' },     // radial coord
     ],
   },
-  fragment: {
-    module: litModule,
-    targets: [{ format: presentationFormat }],
-  },
-  primitive: {
-    cullMode: 'none',
-  },
-  depthStencil: {
-    depthWriteEnabled: true,
-    depthCompare: 'less',
-    // Applying a depth bias can prevent aliasing from z-fighting with the
-    // wireframe lines. The depth bias has to be applied to the lit meshes
-    // rather that the wireframe because depthBias isn't considered when
-    // drawing line or point primitives.
-    depthBias: 1,
-    depthBiasSlopeScale: 0.5,
-    format: depthFormat,
-  },
-  multisample: {
-    count: msaaSampleCount,
-  }
-});
+];
 
-const wireframePipeline = bcWireframe
-  // Barycentric coordinates based wireframe pipeline
-  ? device.createRenderPipeline({
-      label: 'barycentric coordinates based wireframe pipeline',
-      layout: 'auto',
-      vertex: {
-        module: wireframeModule,
-        entryPoint: 'vsIndexedU32bcLines',
-      },
-      fragment: {
-        module: wireframeModule,
-        entryPoint: 'fsbcLines',
-        targets: [
-          {
-            format: presentationFormat,
-            blend: {
-              color: {
-                srcFactor: 'one',
-                dstFactor: 'one-minus-src-alpha',
-              },
-              alpha: {
-                srcFactor: 'one',
-                dstFactor: 'zero',
+function makeLitPipeline(sampleCount: number): GPURenderPipeline {
+  return device.createRenderPipeline({
+    label: `lit pipeline (${sampleCount}x)`,
+    layout: device.createPipelineLayout({
+      bindGroupLayouts: [litBindGroupLayout, cellStateBindGroupLayout],
+    }),
+    vertex: { module: litModule, buffers: litVertexBuffers },
+    fragment: {
+      module: litModule,
+      targets: [{ format: presentationFormat }],
+    },
+    primitive: { cullMode: 'none' },
+    depthStencil: {
+      depthWriteEnabled: true,
+      depthCompare: 'less',
+      // Applying a depth bias can prevent aliasing from z-fighting with the
+      // wireframe lines. The depth bias has to be applied to the lit meshes
+      // rather that the wireframe because depthBias isn't considered when
+      // drawing line or point primitives.
+      depthBias: 1,
+      depthBiasSlopeScale: 0.5,
+      format: depthFormat,
+    },
+    multisample: { count: sampleCount },
+  });
+}
+
+const litPipeline: GPURenderPipeline = makeLitPipeline(msaaSampleCount);
+
+function makeWireframePipeline(sampleCount: number): GPURenderPipeline {
+  return bcWireframe
+    // Barycentric coordinates based wireframe pipeline
+    ? device.createRenderPipeline({
+        label: `barycentric coordinates based wireframe pipeline (${sampleCount}x)`,
+        layout: 'auto',
+        vertex: {
+          module: wireframeModule,
+          entryPoint: 'vsIndexedU32bcLines',
+        },
+        fragment: {
+          module: wireframeModule,
+          entryPoint: 'fsbcLines',
+          targets: [
+            {
+              format: presentationFormat,
+              blend: {
+                color: {
+                  srcFactor: 'one',
+                  dstFactor: 'one-minus-src-alpha',
+                },
+                alpha: {
+                  srcFactor: 'one',
+                  dstFactor: 'zero',
+                },
               },
             },
-          },
-        ],
-      },
-      primitive: {
-        // The shaders for barycentric coordinates based wireframe actually
-        // draw filled-in triangles, except that they "discard" any pixels that
-        // are not near the first two edges.
-        topology: 'triangle-list',
-      },
-      depthStencil: {
-        depthWriteEnabled: true,
-        depthCompare: 'less-equal',
-        format: depthFormat,
-      },
-      multisample: {
-        count: msaaSampleCount,
-      },
-    })
-  // regular line-list based wireframe pipeline
-  : device.createRenderPipeline({
-      label: 'wireframe pipeline',
-      layout: 'auto',
-      vertex: {
-        module: wireframeModule,
-        entryPoint: 'vsIndexedU32',
-      },
-      fragment: {
-        module: wireframeModule,
-        entryPoint: 'fs',
-        targets: [{ format: presentationFormat }],
-      },
-      primitive: {
-        topology: 'line-list',
-      },
-      depthStencil: {
-        depthWriteEnabled: true,
-        depthCompare: 'less-equal',
-        format: depthFormat,
-      },
-      multisample: {
-        count: msaaSampleCount,
-      },
-    });
+          ],
+        },
+        primitive: {
+          // The shaders for barycentric coordinates based wireframe actually
+          // draw filled-in triangles, except that they "discard" any pixels that
+          // are not near the first two edges.
+          topology: 'triangle-list',
+        },
+        depthStencil: {
+          depthWriteEnabled: true,
+          depthCompare: 'less-equal',
+          format: depthFormat,
+        },
+        multisample: { count: sampleCount },
+      })
+    // regular line-list based wireframe pipeline
+    : device.createRenderPipeline({
+        label: `wireframe pipeline (${sampleCount}x)`,
+        layout: 'auto',
+        vertex: {
+          module: wireframeModule,
+          entryPoint: 'vsIndexedU32',
+        },
+        fragment: {
+          module: wireframeModule,
+          entryPoint: 'fs',
+          targets: [{ format: presentationFormat }],
+        },
+        primitive: {
+          topology: 'line-list',
+        },
+        depthStencil: {
+          depthWriteEnabled: true,
+          depthCompare: 'less-equal',
+          format: depthFormat,
+        },
+        multisample: { count: sampleCount },
+      });
+}
+
+const wireframePipeline = makeWireframePipeline(msaaSampleCount);
+
+// Non-MSAA pipelines for XR rendering (XR runtime handles its own anti-aliasing)
+const xrLitPipeline: GPURenderPipeline = msaa ? makeLitPipeline(1) : litPipeline;
+const xrWireframePipeline: GPURenderPipeline = msaa ? makeWireframePipeline(1) : wireframePipeline;
 
 // Make a uniform buffer and type array views
 // for our uniforms.
@@ -613,6 +586,18 @@ const wireframeBindGroup = device.createBindGroup({
     { binding: 2, resource: { buffer: model.indexBuffer } },
   ],
 });
+// XR wireframe pipeline may differ from regular (no MSAA), so needs its own bind group.
+const xrWireframeBindGroup: GPUBindGroup = msaa
+  ? device.createBindGroup({
+      label: 'XR Wireframe pipeline bind group',
+      layout: xrWireframePipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: uniformBuffer } },
+        { binding: 1, resource: { buffer: model.vertexBuffer } },
+        { binding: 2, resource: { buffer: model.indexBuffer } },
+      ],
+    })
+  : wireframeBindGroup;
 const scale = 8;
 const translation: Vec3Arg = [0, 0, 0];
 
@@ -724,6 +709,198 @@ function getAntCameraTransform(progress: number, immersionType: string): CameraP
   };
 }
 
+// Encode draw calls for the scene into an existing render pass encoder.
+// The uniform buffer must be written before calling this.
+function drawScene(
+  pass: GPURenderPassEncoder,
+  activeLitPipeline: GPURenderPipeline,
+  activeWireframePipeline: GPURenderPipeline,
+  activeWireframeBindGroup: GPUBindGroup,
+  cellStateBindGroup: GPUBindGroup,
+) {
+  if (settings.faces) {
+    pass.setPipeline(activeLitPipeline);
+    pass.setVertexBuffer(0, model.vertexBuffer);
+    pass.setIndexBuffer(model.indexBuffer, model.indexFormat);
+    pass.setBindGroup(0, litBindGroup);
+    pass.setBindGroup(1, cellStateBindGroup);
+    pass.drawIndexed(model.vertexCount);
+  }
+
+  if (settings.edges) {
+    pass.setPipeline(activeWireframePipeline);
+    pass.setBindGroup(0, activeWireframeBindGroup);
+    if (bcWireframe) {
+      pass.draw(model.vertexCount);
+    } else {
+      pass.draw(model.vertexCount * 4 / 6);
+    }
+  }
+}
+
+// Render one view of the scene to the given render targets.
+// Writes uniforms and submits a command buffer.
+function renderScene(
+  colorAttachment: GPURenderPassColorAttachment,
+  depthAttachment: GPURenderPassDepthStencilAttachment,
+  viewport: { x: number; y: number; width: number; height: number } | undefined,
+  viewMatrix: Float32Array,
+  projectionMatrix: Float32Array,
+  eye: Vec3Arg,
+  activeLitPipeline: GPURenderPipeline,
+  activeWireframePipeline: GPURenderPipeline,
+  activeWireframeBindGroup: GPUBindGroup,
+) {
+  const world = mat4.identity();
+  mat4.translate(world, translation, world);
+  mat4.uniformScale(world, scale, world);
+
+  const viewProjection = mat4.multiply(projectionMatrix, viewMatrix);
+  mat4.multiply(viewProjection, world, worldViewProjectionMatrixValue);
+  mat3.multiply(viewMatrix, world, worldMatrixValue);
+  mat3.invert(worldMatrixValue);
+  mat3.transpose(worldMatrixValue);
+  segmentsValues[0] = tubularSegments;
+  segmentsValues[1] = radialSegments;
+  wireBrightnessDistance[0] = Math.max(50, vec3.length(eye));
+  device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
+
+  const cellStateBindGroup = device.createBindGroup({
+    label: 'Cell state bind group',
+    layout: cellStateBindGroupLayout,
+    entries: [{ binding: 0, resource: { buffer: life.currentCellState } }],
+  });
+
+  const encoder = device.createCommandEncoder();
+  const pass = encoder.beginRenderPass({
+    label: 'scene render pass',
+    colorAttachments: [colorAttachment],
+    depthStencilAttachment: depthAttachment,
+  });
+  if (viewport) {
+    pass.setViewport(viewport.x, viewport.y, viewport.width, viewport.height, 0, 1);
+  }
+  drawScene(pass, activeLitPipeline, activeWireframePipeline, activeWireframeBindGroup, cellStateBindGroup);
+  pass.end();
+  device.queue.submit([encoder.finish()]);
+}
+
+// XR state
+let xrSession: XRSession | null = null;
+let xrReferenceSpace: XRReferenceSpace | null = null;
+let xrBinding: XRGPUBinding | null = null;
+let xrLayer: XRProjectionLayer | null = null;
+// Depth textures keyed by imageIndex (one per eye)
+const xrDepthTextures = new Map<number, GPUTexture>();
+
+function xrFrame(ts: number, frame: XRFrame) {
+  xrSession!.requestAnimationFrame(xrFrame);
+
+  // Life simulation update
+  if (lastLifeStep === undefined) {
+    lastLifeStep = ts;
+  }
+  if (settings.lifeStepsPerSecond > 0) {
+    const lifeStepMs = 1000 / settings.lifeStepsPerSecond;
+    const nextLifeStep = Math.max(ts, lastLifeStep + lifeStepMs);
+    if (ts >= nextLifeStep) {
+      life.update();
+      lastLifeStep = nextLifeStep;
+    }
+  }
+
+  const pose = frame.getViewerPose(xrReferenceSpace!);
+  if (!pose) return;
+
+  for (const view of pose.views) {
+    const subImage = xrBinding!.getViewSubImage(xrLayer!, view);
+    const { x, y, width, height } = subImage.viewport;
+
+    // Create or reuse a depth texture for this eye
+    const idx = subImage.imageIndex;
+    const existingDepth = xrDepthTextures.get(idx);
+    if (!existingDepth ||
+        existingDepth.width !== subImage.colorTexture.width ||
+        existingDepth.height !== subImage.colorTexture.height) {
+      existingDepth?.destroy();
+      xrDepthTextures.set(idx, device.createTexture({
+        size: [subImage.colorTexture.width, subImage.colorTexture.height],
+        format: depthFormat,
+        usage: GPUTextureUsage.RENDER_ATTACHMENT,
+      }));
+    }
+
+    const colorView = subImage.colorTexture.createView({
+      dimension: '2d',
+      arrayLayerCount: 1,
+      baseArrayLayer: idx,
+    });
+    const depthView = xrDepthTextures.get(idx)!.createView();
+
+    const projectionMatrix = new Float32Array(view.projectionMatrix);
+    const viewMatrix = new Float32Array(view.transform.inverse.matrix);
+    const eye: Vec3Arg = [
+      view.transform.position.x,
+      view.transform.position.y,
+      view.transform.position.z,
+    ];
+
+    renderScene(
+      { view: colorView, clearValue: [0, 0, 0, 1], loadOp: 'clear', storeOp: 'store' },
+      { view: depthView, depthClearValue: 1.0, depthLoadOp: 'clear', depthStoreOp: 'store' },
+      { x, y, width, height },
+      viewMatrix,
+      projectionMatrix,
+      eye,
+      xrLitPipeline,
+      xrWireframePipeline,
+      xrWireframeBindGroup,
+    );
+  }
+}
+
+// VR button
+const vrButtonContainer = document.getElementById('vr-button-container') as HTMLDivElement;
+const vrButton = document.getElementById('vr-button') as HTMLButtonElement;
+if (navigator.xr) {
+  navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+    if (supported) {
+      vrButtonContainer.style.display = '';
+    }
+  });
+}
+vrButton.addEventListener('click', async () => {
+  if (xrSession) {
+    xrSession.end();
+    return;
+  }
+  try {
+    const session = await navigator.xr!.requestSession('immersive-vr', {
+      requiredFeatures: ['local-floor'],
+    });
+    xrSession = session;
+    session.addEventListener('end', () => {
+      xrSession = null;
+      xrReferenceSpace = null;
+      xrBinding = null;
+      xrLayer = null;
+      xrDepthTextures.forEach((t) => t.destroy());
+      xrDepthTextures.clear();
+      vrButton.textContent = 'Enter VR';
+      lastLifeStep = undefined;
+      requestAnimationFrame(render);
+    });
+    vrButton.textContent = 'Exit VR';
+    xrReferenceSpace = await session.requestReferenceSpace('local-floor');
+    xrBinding = new XRGPUBinding(session, device);
+    xrLayer = xrBinding.createProjectionLayer({ colorFormat: presentationFormat });
+    session.updateRenderState({ layers: [xrLayer] });
+    session.requestAnimationFrame(xrFrame);
+  } catch (e) {
+    console.error('Failed to start VR session:', e);
+  }
+});
+
 let lastFrame: number | undefined;
 let lastLifeStep: number | undefined;
 let cameraPosition: CameraPosition | undefined;
@@ -809,25 +986,6 @@ function render(ts: number) {
     });
   }
 
-  const renderPassDescriptor: GPURenderPassDescriptor = {
-    label: 'our basic canvas renderPass',
-    colorAttachments: [
-      {
-        view: (msaa ? multisampleTexture! : canvasTexture).createView(),
-        resolveTarget: msaa ? canvasTexture.createView() : undefined,
-        clearValue: [0, 0, 0, 1],
-        loadOp: 'clear',
-        storeOp: 'store',
-      },
-    ],
-    depthStencilAttachment: {
-      view: depthTexture.createView(),
-      depthClearValue: 1.0,
-      depthLoadOp: 'clear',
-      depthStoreOp: 'store',
-    },
-  };
-
   const aspect = canvas.clientWidth / canvas.clientHeight;
   // For landscape aspect ratios, we use the vertical fov as specified. If the
   // window is not wide enough, we increase the fov to try to fit the whole
@@ -837,8 +995,6 @@ function render(ts: number) {
     (fovY * 2 / 3 / aspect * Math.PI) / 180,
   );
   const projection = mat4.perspective(fov, aspect, clipNear, clipFar);
-
-  let view: Float32Array;
 
   // Calculate the desired camera position based on either ant mode or regular
   // orbit mode.
@@ -871,70 +1027,33 @@ function render(ts: number) {
   } else {
     cameraPosition = goalCamera;
   }
-  view = mat4.lookAt(cameraPosition.eye, cameraPosition.target, cameraPosition.up);
+  const viewMatrix = mat4.lookAt(cameraPosition.eye, cameraPosition.target, cameraPosition.up);
 
-  const viewProjection = mat4.multiply(projection, view);
+  renderScene(
+    {
+      view: (msaa ? multisampleTexture! : canvasTexture).createView(),
+      resolveTarget: msaa ? canvasTexture.createView() : undefined,
+      clearValue: [0, 0, 0, 1],
+      loadOp: 'clear',
+      storeOp: 'store',
+    },
+    {
+      view: depthTexture.createView(),
+      depthClearValue: 1.0,
+      depthLoadOp: 'clear',
+      depthStoreOp: 'store',
+    },
+    undefined,
+    viewMatrix,
+    projection,
+    cameraPosition.eye,
+    litPipeline,
+    wireframePipeline,
+    wireframeBindGroup,
+  );
 
-  // make a command encoder to start encoding commands
-  const encoder = device.createCommandEncoder();
-
-  // make a render pass encoder to encode render specific commands
-  const pass = encoder.beginRenderPass(renderPassDescriptor);
-  pass.setPipeline(litPipeline);
-
-  pass.setBindGroup(1, device.createBindGroup({
-    label: 'Cell state bind group',
-    layout: cellStateBindGroupLayout,
-    entries: [{
-      binding: 0,
-      resource: { buffer: life.currentCellState },
-    }],
-  }));
-
-  const world = mat4.identity();
-  mat4.translate(world, translation, world);
-  mat4.uniformScale(world, scale, world);
-
-  mat4.multiply(viewProjection, world, worldViewProjectionMatrixValue);
-  mat3.multiply(view, world, worldMatrixValue);
-  mat3.invert(worldMatrixValue);
-  mat3.transpose(worldMatrixValue);
-  segmentsValues[0] = tubularSegments;
-  segmentsValues[1] = radialSegments;
-  wireBrightnessDistance[0] = Math.max(50, vec3.length(cameraPosition.eye));
-
-  // Upload our uniform values.
-  device.queue.writeBuffer(uniformBuffer, 0, uniformValues);
-
-  if (settings.faces) {
-    pass.setVertexBuffer(0, model.vertexBuffer);
-    pass.setIndexBuffer(model.indexBuffer, model.indexFormat);
-    pass.setBindGroup(0, litBindGroup);
-    pass.drawIndexed(model.vertexCount);
+  if (!xrSession) {
+    requestAnimationFrame(render);
   }
-
-  if (settings.edges) {
-    pass.setPipeline(wireframePipeline);
-    pass.setBindGroup(0, wireframeBindGroup);
-    if (bcWireframe) {
-      // The barycentric coordinates wireframe shaders draw triangles (although
-      // most of the triangle is invisible, only pixels near the first two
-      // edges are drawn), so we give it the full pixel count.
-      pass.draw(model.vertexCount);
-    } else {
-      // In the "line-list" wireframe shaders, for each quad (2 triangles) we
-      // have 6 vertex indices. We draw only two edges of the quad to make a
-      // rectangular mesh (the other two are drawn by adjacent quads). Each
-      // edge is 2 vertices, so we draw 4 vertices per quad.
-      pass.draw(model.vertexCount * 4 / 6);
-    }
-  }
-
-  pass.end();
-
-  const commandBuffer = encoder.finish();
-  device.queue.submit([commandBuffer]);
-
-  requestAnimationFrame(render);
 }
 requestAnimationFrame(render);

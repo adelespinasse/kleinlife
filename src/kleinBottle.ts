@@ -149,7 +149,8 @@ function pinchedTorus(
   return [x, Math.pow(Math.abs(Math.sin(u / 2)), 0.5) * y, z];
 }
 
-// Claude's cool-looking failed attempt.
+// Claude's cool-looking failed attempt. I should have kept track of what
+// version, but it was fall 2025 and pretty sure it was Sonnet.
 function bigSail(
   u: number, v: number,
   ringRadius: number, tubeRadius: number,
@@ -174,6 +175,181 @@ function tube(u: number, v: number): [number, number, number] {
   return [200 * (u - Math.PI), 5 * Math.sin(v), 5 * Math.cos(v)];
 }
 
+// From chatjimmy.ai, generated in a scarily short amount of time. First
+// attempt made a flat disc shape; this second failure is more interesting.
+function kleinBottleChatJimmy(u: number, v: number): [number, number, number] {
+    return [
+        4 * (3 + 4 * Math.cos(u) * (Math.sin(2 * v) - v)) * Math.cos(v),
+        4 * Math.sin(u) * (Math.sin(2 * v) + 4 * Math.cos(u) * Math.cos(v)),
+        4 * Math.cos(u) * (2 + Math.cos(2 * v) - 1)
+    ];
+}
+
+// Claud Opus 4.6's first attempt. It told me it was a figure 8 immersion, but
+// it's actually closer to a bottle shape, with some discontinuities.
+function kleinBottleClaudeOpus4_6NotFigure8(u: number, v: number): [number, number, number] {
+  const cosU = Math.cos(u);
+  const sinU = Math.sin(u);
+  const cosV = Math.cos(v);
+  const sinV = Math.sin(v);
+
+  const a = 6;
+  const b = 16;
+  const c = 4;
+
+  let x: number, y: number, z: number;
+
+  if (u < Math.PI) {
+    x = a * cosU * (1 + sinU) + c * (1 - cosU / 2) * cosV;
+    y = b * sinU + c * (1 - cosU / 2) * sinV;
+  } else {
+    x = a * cosU * (1 + sinU) - c * (1 + cosU / 2) * cosV;
+    y = b * sinU;
+  }
+
+  z = -c * (1 + cosU / 2) * sinV;
+
+  return [x, y, z];
+}
+
+// Claude Opus 4.6, when I pointed out the problems with the above. It
+// actually generated 4 different versions, each time deciding that it wasn't
+// good and trying again. This one is closest.
+function kleinBottleClaudeOpus4_6(u: number, v: number): [number, number, number] {
+  const cosV = Math.cos(v);
+  const sinV = Math.sin(v);
+
+  if (u < Math.PI) {
+    const r = 4 * (1 - Math.cos(u) / 2);
+    return [
+      6 * Math.cos(u) * (1 + Math.sin(u)) + r * Math.cos(u) * cosV,
+      16 * Math.sin(u) + r * Math.sin(u) * sinV,
+      r * (-sinV),
+    ];
+  } else {
+    const r = 4 * (1 + Math.cos(u) / 2);
+    return [
+      6 * Math.cos(u) * (1 + Math.sin(u)) - r * cosV,
+      16 * Math.sin(u),
+      r * sinV,
+    ];
+  }
+}
+
+// Claude Opus 4.7, the first Opus model to actually get it right (on the first
+// try). Looks a lot like the MathCurve version.
+function kleinBottleClaudeOpus4_7(u: number, v: number): [number, number, number] {
+  const cosU = Math.cos(u);
+  const sinU = Math.sin(u);
+  const cosV = Math.cos(v);
+  const sinV = Math.sin(v);
+
+  let x: number, y: number, z: number;
+
+  if (u < Math.PI) {
+    // Bottom half: the bulbous body that flares out and curls upward.
+    x =
+      3 * cosU * (1 + sinU) +
+      2 * (1 - cosU / 2) * cosU * cosV;
+    z =
+      -8 * sinU -
+      2 * (1 - cosU / 2) * sinU * cosV;
+  } else {
+    // Top half: the narrow neck that passes through the body.
+    x =
+      3 * cosU * (1 + sinU) +
+      2 * (1 - cosU / 2) * Math.cos(v + Math.PI);
+    z = -8 * sinU;
+  }
+
+  y = -2 * (1 - cosU / 2) * sinV;
+
+  return [ x, y, z ];
+}
+
+// Claude Sonnet 4.6, correct on the first try, looks a lot like the Mathcurve
+// version and suspiciously similar to Opus 4.7 (but different orientation and
+// order of operations). This was after the Opus 4.7 test, but memory appears
+// to be disabled, so I guess it just got it right.
+function kleinBottleClaudeSonnet4_6(u: number, v: number): [number, number, number] {
+  // u, v ∈ [0, 2π]
+  let x: number, y: number, z: number;
+
+  if (u < Math.PI) {
+    x = 3 * Math.cos(u) * (1 + Math.sin(u)) + (2 * (1 - Math.cos(u) / 2)) * Math.cos(u) * Math.cos(v);
+    y = 8 * Math.sin(u) + (2 * (1 - Math.cos(u) / 2)) * Math.sin(u) * Math.cos(v);
+    z = (2 * (1 - Math.cos(u) / 2)) * Math.sin(v);
+  } else {
+    x = 3 * Math.cos(u) * (1 + Math.sin(u)) + (2 * (1 - Math.cos(u) / 2)) * Math.cos(v + Math.PI);
+    y = 8 * Math.sin(u);
+    z = (2 * (1 - Math.cos(u) / 2)) * Math.sin(v);
+  }
+
+  return [x, y, z];
+}
+
+// ChatGPT free version on 2026-04-23, self-reported as GPT-5.3. Good
+// Mathcurve-like shape except that it pinches down to zero instead of matching
+// up correctly in the neck. I guess it would probably look correct if you only
+// drew points, not polygons connecting them.
+function kleinBottleChatGPTFree(u: number, v: number): [number, number, number] {
+  // Ensure u, v are within [0, 2π] if caller doesn't enforce it
+  const twoPi = Math.PI * 2;
+  u = u % twoPi;
+  v = v % twoPi;
+
+  const r = 4; // controls overall size
+
+  let x: number, y: number, z: number;
+
+  if (u < Math.PI) {
+    x =
+      3 * Math.cos(u) * (1 + Math.sin(u)) +
+      r * (1 - Math.cos(u) / 2) * Math.cos(u) * Math.cos(v);
+    z =
+      -8 * Math.sin(u) -
+      r * (1 - Math.cos(u) / 2) * Math.sin(u) * Math.cos(v);
+  } else {
+    x =
+      3 * Math.cos(u) * (1 + Math.sin(u)) +
+      r * (1 - Math.cos(u) / 2) * Math.cos(v + Math.PI);
+    z = -8 * Math.sin(u);
+  }
+
+  y = r * (1 - Math.cos(u) / 2) * Math.sin(v);
+
+  return [x, y, z];
+}
+
+// ChatGPT free version on 2026-04-23, self-reported as GPT-5.3, second
+// attempt. I uploaded a picture of the first and asked it to fix the
+// discontinuity. I think it thought I was talking about the minor knee in the
+// wide part; this is a figure 8 immersion but still has a similar discontinuity.
+function kleinBottleChatGPTFree2(u: number, v: number): [number, number, number] {
+  const twoPi = Math.PI * 2;
+
+  // normalize (optional)
+  u = u % twoPi;
+  v = v % twoPi;
+
+  const a = 2;  // overall scale
+  const b = 4;  // tube length / stretch
+
+  const x =
+    (a + Math.cos(u / 2) * Math.sin(v) - Math.sin(u / 2) * Math.sin(2 * v)) *
+    Math.cos(u);
+
+  const y =
+    (a + Math.cos(u / 2) * Math.sin(v) - Math.sin(u / 2) * Math.sin(2 * v)) *
+    Math.sin(u);
+
+  const z =
+    Math.sin(u / 2) * Math.sin(v) +
+    Math.cos(u / 2) * Math.sin(2 * v);
+
+  return [b * x, b * y, b * z];
+}
+
 // Klein bottle coordinates for a parameterization specified by name. This
 // chooses different convenient shape parameters for each version to make them
 // come out an appropriate size for the default camera position.
@@ -182,6 +358,20 @@ function kleinBottleCoord(
   immersion: string,
 ): [number, number, number] {
   switch (immersion) {
+    case 'chatjimmy':
+        return kleinBottleChatJimmy(u, v);
+    case 'opus4_6notfig8':
+        return kleinBottleClaudeOpus4_6NotFigure8(u, v);
+    case 'opus4_6':
+        return kleinBottleClaudeOpus4_6(u, v);
+    case 'opus4_7':
+        return kleinBottleClaudeOpus4_7(u, v);
+    case 'sonnet4_6':
+        return kleinBottleClaudeSonnet4_6(u, v);
+    case 'chatgptfree':
+        return kleinBottleChatGPTFree(u, v);
+    case 'chatgptfree2':
+        return kleinBottleChatGPTFree2(u, v);
     case 'mathcurve':
         return kleinBottleMathcurve(u, v, 10, 3);
     case 'figure8':

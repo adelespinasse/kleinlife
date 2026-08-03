@@ -9,6 +9,87 @@ import {
 // Klein bottle (or, in a couple cases, some other shape). Each function takes
 // different additional arguments to modify the shape in different ways.
 
+
+// For Franzoni embedding. Below this the tangent is treated as degenerate
+// (only happens at the cusp).
+const TANGENT_EPS = 1e-12;
+
+/**
+ * Klein bottle immersion in R^3 as a self-penetrating tube, following
+ * G. Franzoni, "The Klein bottle in its classical shape: a further step
+ * towards a good parametrization" (arXiv:0909.5354), section 3.
+ *
+ * Construction: a tube (eq. 3) around a piriform directrix re-parametrized
+ * to start and end at its cusp (eq. 9), with a radius function (eq. 10)
+ * whose derivative blows up at both ends so the two tube ends meet
+ * tangentwise:
+ *
+ *   gamma(t) = ( a(1 - cos t),  b sin t (1 - cos t) ),      t in [0, 2pi]
+ *   r(t)     = c - d (t - pi) sqrt( t (2pi - t) )
+ *   Tube(t, theta) = gamma(t) + r(t) ( cos(theta) J(T) + sin(theta) k )
+ *
+ * where T is the unit tangent of gamma, J(v1, v2) = (-v2, v1) is rotation
+ * by 90 degrees in the xy plane, and k = (0, 0, 1).
+ *
+ * @param u      position along the directrix ("t" in the paper), 0 .. 2*pi
+ * @param v      angle around the tube ("theta" in the paper), 0 .. 2*pi
+ * @param a, b   piriform width / height
+ * @param c      overall tube radius
+ * @param d      spread between the tube's min and max radius
+ * @param scale  scale factor for the final coordinates
+ */
+export function kleinBottleFranzoni(
+  u: number,
+  v: number,
+  a = 20,
+  b = 8,
+  c = 11 / 2,
+  d = 2 / 5,
+  scale = 0.3,
+): [number, number, number] {
+  const cosU = Math.cos(u);
+  const sinU = Math.sin(u);
+
+  // Directrix gamma(u).
+  const gx = a * (1 - cosU);
+  const gy = b * sinU * (1 - cosU);
+
+  // gamma'(u) = ( a sin u,  b (cos u - cos 2u) ).
+  const dx = a * sinU;
+  const dy = b * (cosU - Math.cos(2 * u));
+
+  // Unit tangent T. gamma' vanishes at the cusp (u = 0 and u = 2*pi); the
+  // one-sided limits of T there are (1, 0) and (-1, 0) respectively, so the
+  // surface stays continuous if we substitute them.
+  const norm = Math.hypot(dx, dy);
+  let tx: number;
+  let ty: number;
+  if (norm < TANGENT_EPS) {
+    tx = u < Math.PI ? 1 : -1;
+    ty = 0;
+  } else {
+    tx = dx / norm;
+    ty = dy / norm;
+  }
+
+  // J(T), the in-plane normal.
+  const jx = -ty;
+  const jy = tx;
+
+  // Radius r(u). Clamped under the root so values of u slightly outside
+  // [0, 2*pi] (from floating-point drift) don't produce NaN.
+  const under = Math.max(0, u * (2 * Math.PI - u));
+  const r = c - d * (u - Math.PI) * Math.sqrt(under);
+
+  const cosV = Math.cos(v);
+  const sinV = Math.sin(v);
+
+  const [x, y, z] = [gy + r * cosV * jy, gx + r * cosV * jx, r * sinV];
+  return [x * scale, (y - a) * scale, z * scale];
+}
+
+
+
 // Parameters for kleinBottleWikipedia function below. I really don't
 // understand most of these. The narrow part of the neck gets wider when you
 // increase a (the wide part increases too but not as much). xfac, yfac, and
@@ -182,6 +263,8 @@ function kleinBottleCoord(
   immersion: string,
 ): [number, number, number] {
   switch (immersion) {
+    case 'franzoni':
+        return kleinBottleFranzoni(u, v);
     case 'mathcurve':
         return kleinBottleMathcurve(u, v, 10, 3);
     case 'figure8':
